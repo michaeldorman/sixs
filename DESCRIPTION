@@ -1,0 +1,21 @@
+Package: sixs
+Type: Package
+Title: Atmospehric correction using 6S
+Version: 0.0.3
+Authors@R: c(
+    person("Michael", "Dorman", email = "dorman@post.bgu.ac.il", role = c("aut", "cre")),
+    person("Moshe", "Dubinin", email = "dubinin@post.bgu.ac.il", role = c("aut")),
+    person("Shay", "Adar", email = "shay.adarz@gmail.com", role = c("aut")))
+Description: Functions for atmospehric correction using the 6S web interface.
+License: GPL-2
+LazyData: TRUE
+Depends: 
+    R (>= 3.5.0),
+    stars
+Imports: 
+    RSelenium
+RoxygenNote: 7.1.0
+Encoding: UTF-8
+Suggests: 
+    tinytest,
+    XML

@@ -1,0 +1,10 @@
+^CRAN-RELEASE$
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.Rmd$
+^README\.md$
+^README-.*\.png$
+^cran-comments\.md$
+^doc$
+^Meta$
+^data-raw$
