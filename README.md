@@ -4,9 +4,42 @@
 ## Purpose
 
 The `sixs` package automates obtaining atmospheric correction parameters
-from by programmatically filling up the [web
+by programmatically filling up the [web
 interface](https://www-loa.univ-lille1.fr/Wsixs/) with user-provided
-inputs.
+inputs, as well as related functions to aid in atmospheric correction of
+satellite images in general, and Venus satellite images in particular.
+
+## Package structure
+
+The main two functions in the package are:
+
+  - `sixs_params` for obtaining the 6S parameters
+  - `toa_rad_to_boa_refl` for convering a TOA radiance image to a BOA
+    reflectance image using the 6S parameters
+
+The package also contains several other functions, :
+
+  - `get_venus_metadata` for extracting relevant Venus satellite image
+    metadata from `HDR` files
+  - `rad_to_refl` for converting TOA radiance to TOA reflectance
+  - `refl_to_rad` for converting TOA reflectance to TOA radiance
+
+Two datasets are provided to for the reproducible examples (below, and
+in package docs) to demonstrate atmospheric correction of Venus
+satellite images:
+
+  - `venus1` - a raw (cropped) Venus satellite image (`stars` object),
+    given in TOA reflectance
+  - `venus1_boa` - an atmospherically-corrected image (`stars` object),
+    given in BOA reflectance
+  - `venus1m` - raw venus image metadata, the contents of the `HDR` file
+    (`character`)
+  - `venus2`, `venus2_boa`, `venus2m` - same, for a different Venus
+    image
+  - `bands` - general information on Venus satellite bands
+    (`data.frame`)
+  - `venus_validation` - parameters from the metadata and from the 6S
+    website for all 12 bands of both images, for validation purposes
 
 ## Setup
 
@@ -53,8 +86,8 @@ remote_driver$open(silent = TRUE)
 #### Demo server
 
 Alternatively, you can use the demo server we set up for demontrating
-the package. Here is a small example where we browse to google.com and
-print the page title:
+the package. Here is a small example where we browse to
+<https://www.google.com> and print the page title:
 
 ``` r
 library(RSelenium)
@@ -78,34 +111,29 @@ remote_driver$getTitle()
 remote_driver$close()
 ```
 
-Note that the connection needs to be closed at the end using:
-
-``` r
-remote_driver$close()
-```
-
-Keeping the connection open consumes RAM and eventually can make the
-server crash\! The demo server is restarted automatically every day at
-4AM. If you encounter a problem, please open an
-[issue](https://github.com/michaeldorman/sixs/issues).
+Note that the connection needs to be closed at the end using the last
+expression above. Keeping the connection open consumes RAM and
+eventually can make the server crash\! The demo server is restarted
+automatically every day at 4AM. If you encounter a problem, please open
+an [issue](https://github.com/michaeldorman/sixs/issues).
 
 ## Example
 
 ### Overview
 
 The following sections demonstrate the entire process of going from a
-raw Venus satellite image to an atmospherically-corrected reflectance
-image.
+raw TOA reflectance Venus satellite image to an
+atmospherically-corrected BOA reflectance image.
 
 ### Input data
 
 The input data includes:
 
-1.  The Venus satellite image (`venus1`)
+1.  The Venus satellite image fragment (`venus1`)
 2.  The Venus satellite image metadata (`venus1m`)
 3.  Venus bands metadata (`bands`)
 
-The image:
+First, we load the `sixs` package:
 
 ``` r
 library(sixs)
@@ -118,6 +146,11 @@ library(sixs)
     ## Loading required package: sf
 
     ## Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 7.0.0
+
+Here is a printout of the raw Venus image fragment, `venus1`. The object
+contains the original information from the `.tif` file, cropped to a
+small spatial extent (to reduce image size) and using only the
+reflective bands 1-12:
 
 ``` r
 venus1
@@ -139,13 +172,32 @@ venus1
     ## y       1 121 3639028    -5 WGS_1984_UTM_Zone_36N FALSE   NULL [y]
     ## band    1  12      NA    NA                    NA    NA   NULL
 
+and here is a visualization. Note that the image includes six
+(reflective) bands 1-12:
+
 ``` r
 plot(venus1)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
-Metadata:
+In case you are working with a real Venus image, rather than the sample
+dataset, the `.TIF` file can be read into a `stars` object with:
+
+``` r
+library(stars)
+
+# Read image
+r = read_stars("/home/michael/Dropbox/Packages/sixs/other/venus_sample_data/images/VE_VM01_VSC_PDTIMG_L1VALD_ISRAEL03_20190204.DBL.TIF_crop.TIF", proxy = FALSE)
+
+# Subset bands
+r = r[,,,1:12]
+```
+
+The Venus image metadata comes as an XML document in an `.HDR` file.
+File contents are stored as a `character` of length 1 named `venus1m`.
+Here are the first 80 characters from
+    it:
 
 ``` r
 substr(venus1m, 1, 80)
@@ -153,7 +205,9 @@ substr(venus1m, 1, 80)
 
     ## [1] "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xml-stylesheet type='text/xsl' href='DIS"
 
-Venus bands metadata:
+Additionally, the `sixs` package includes general metadata about the 12
+reflective bands of the Venus satellite, in a `data.frame` named
+`bands`:
 
 ``` r
 bands
@@ -175,12 +229,19 @@ bands
 
 ### Getting image metadata
 
-Metadata from `HDR` file:
+The first step is to process the `HDR` metadata `character` into a
+`list` (using the `XML` package), then extract the relevant metadata
+items to another (smaller) `list` using `get_venus_metadata`:
 
 ``` r
 library(XML)
 l = xmlToList(venus1m)
 m = get_venus_metadata(l, band = 1)
+```
+
+Here is the list with metadata items that we now have:
+
+``` r
 m
 ```
 
@@ -208,39 +269,50 @@ m
     ## $elevation
     ## [1] 0.325
 
-General metadata on Venus bands.
+In case you are working with a real Venus image, rather thean the sample
+dataset, the same result can be obtained reading from the `.HDR` file:
+
+``` r
+library(XML)
+x = xmlParse("VE_VM01_VSC_L1VALD_ISRAEL03_20190204.HDR")
+l = xmlToList(x)
+m = get_venus_metadata(l, band = 1)
+```
 
 ### Reflectance to radiance
 
-Venus satellite images are provided in TOA reflectance values multiplied
-by 1000. However, the 6S algorithm requires the imput to be TOA radiance
-values.
+Venus satellite images are provided in TOA reflectance values,
+multiplied by 1000. However, the 6S algorithm requires the input to be
+TOA radiance values.
 
-Therefore, to proceed the image values need to be divided by 1000:
+Therefore, to proceed, the Venus image values need to be divided by
+1000:
 
 ``` r
 venus1 = venus1 * 0.001
 ```
 
 In the example, we atmospherically correct a specific band (3),
-therefore we also subset the third layer from the `venus1` image:
+therefore we will also subset the third layer from the `venus1` image:
 
 ``` r
 venus1 = venus1[,,,3,drop=TRUE]
 names(venus1) = "TOA reflectance"
 ```
 
-Here what the TOA reflectance values in band 3 of the `venus1` sample
+Here is what the TOA reflectance values in band 3 of the `venus1` sample
 image look like:
 
 ``` r
 plot(venus1)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
-Then, the resulting TOA reflectance values need to be converted back to
-TOA radiance values. This can be done using function `refl_to_rad`.
+Now, the TOA reflectance values need to be converted back to TOA
+radiance values (so that they can be used as input in the 6S algorithm).
+The conversion from TOA reflectance to TOA radiance can be done using
+function `refl_to_rad`.
 
 Here is an example of converting the band 3 of the `venus1` image from
 TOA reflectance to TOA radiance:
@@ -256,23 +328,27 @@ venus1_toa_rad = refl_to_rad(
 names(venus1_toa_rad) = "Band 3, TOA radiance"
 ```
 
+And here is an image of the result:
+
 ``` r
 plot(venus1_toa_rad)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
-When the satellite image is given in radiance units, the inverse
+(When the satellite image is given in radiance units, the inverse
 `rad_to_refl` function can be used to convert it to a TOA reflectance
-image. The required data includes the `date`, `esun` and
-`solar_zenith_angle`, same as in `refl_to_rad`.
+image—if necessary. The required data includes the `date`, `esun` and
+`solar_zenith_angle`, same as in `refl_to_rad`.)
 
 ### Atmospheric parameters from Aeronet
 
-The 6S algorithm requires obtaining three meteorological parameters from
-the AERONET stations data, namely:
+In addition to the Venus image metadata extracted from the `.HDR` file
+and the general information in the `bands` table, the 6S algorithm also
+requires obtaining three meteorological parameters from the AERONET
+stations data, namely:
 
-  - AOD550nm
+  - AOD 550nm
   - Uw \[g cm-2\]
   - UO3 \[cm/atm\]
 
@@ -284,14 +360,39 @@ Here is how to obtain these parameters:
 
   - Choose an AEORONET station that is geographically located near your
     site. It is possible to click on the map several times in order to
-    zoom in and choose the relevant station easily. For example in
-    Figure 1 below is a list of AERONET stations in the western Middle
-    East (Israel, Egypt, Cyprus and Greece).
+    zoom in and choose the relevant station easily. For example, the
+    screenshot below shows a list of AERONET stations in the western
+    Middle East (Israel, Egypt, Cyprus and
+Greece).
 
-Figure 1: Example of a list of AERONET stations.
+<div class="figure">
+
+<img src="README_files/fig1.png" alt="Example of a list of AERONET stations" width="724" />
+
+<p class="caption">
+
+Example of a list of AERONET stations
+
+</p>
+
+</div>
 
   - Click on the relevant station. This will open a window as shown in
-    Figure 2.
+    the following
+screenshot.
+
+<div class="figure">
+
+<img src="README_files/fig2.png" alt="A window of meteorological data for Sede Boker site in Israel. The links for downloading the relevant data are shown in red squares" width="982" />
+
+<p class="caption">
+
+A window of meteorological data for Sede Boker site in Israel. The links
+for downloading the relevant data are shown in red squares
+
+</p>
+
+</div>
 
   - Choose the relevant period (year) on the left panel. In case the
     user does not choose the relevant period, the website will return
@@ -302,29 +403,25 @@ Figure 1: Example of a list of AERONET stations.
 
   - Click on AOD Level 1.0 to download the data.
 
-Figure 2: A window of meteorological data for Sede Boker site in Israel.
-The links for downloading the relevant data are shown in red squares.
-
-  - Accept the data usage agreement in the window shown in Figure 3:
-
-Figure 3: Acceptation of AERONET data usage.
+  - Accept the data usage agreement.
 
   - Download and unzip the data (a `.lev1` file) and open the data in
-    Excel using the option ‘from text’ in the ‘data’ tab.
+    Excel using the option “from text” in the “data” tab.
 
   - Calculate the AOD in 550 nm: use the AOD in 675 nm (AOD\_675nm
     column) and AOD in 500 nm (AOD\_500nm column) in the formula below
     to calculate AOD in 550 nm:
 
   - Find the perceptible water value under the column
-    ‘Precipitable\_Water(cm)’ that presents the water vapor (Uw) in
+    “Precipitable\_Water(cm)” that presents the water vapor (Uw) in
     \[g cm-2\].
 
-  - Find the Ozone concentration value under the column ‘Ozone(Dobson)’
+  - Find the Ozone concentration value under the column “Ozone(Dobson)”
     that presents the O3 concentration in Dobson units. Multiply this
     value by 0.001 to obtain the Ozone concentration in \[cm/atm\].
 
-Specifically for `venus1`, the required variables are:
+Specifically for the image we are working with in this example,
+`venus1`, the required parameters are:
 
 ``` r
 Uw = 0.665071
@@ -334,14 +431,19 @@ opticalDepth = 0.1105934
 
 ### Additional parameters
 
-`GroundCondition` is usually `"Patchy Ground"`.
+Finally, there are some parameters required for the 6S algorithm that
+cannot be obtained from the image metadata or from the Aeronet website.
+Instead, they need to be determined according to the purposes of image
+correction:
 
-`TargetReflectance` depends on what the project focuses on.
+  - `GroundCondition` is usually `"Patchy Ground"`.
+  - `TargetReflectance` depends on what the project focuses on.
+  - `EnvironmentReflectance` depends on surrounding cover.
+  - `TargetRadius` needs to be smaller than pixel size, in meters (for
+    Venus \<5.3)
 
-`EnvironmentReflectance` depends on surrounding cover.
-
-`TargetRadius` needs to be smaller than pixel size, in meters (for Venus
-\<5.3)
+Here are the specific values we are going to use when correcting the
+`venus1` image:
 
 ``` r
 GroundCondition = "Patchy Ground"
@@ -352,10 +454,11 @@ TargetRadius = 0.5
 
 ### 6S parameters
 
-Once the server is set and the `remote_driver` object exists, you can
-execute the `sixs_params` function to get the 6S parameters.
+Once we have all of the parameters, the remote server is set and the
+`remote_driver` object exists, you can execute the `sixs_params`
+function to get the 6S parameters.
 
-For example, for band 3 from the `venus1` image:
+For example, for band 3 from the `venus1` image we get:
 
 ``` r
 remote_driver$open(silent = TRUE)
@@ -378,7 +481,7 @@ xcoefficients = sixs_params(
   GroundCondition = "Patchy Ground",
   TargetReflectance = "Vegetation",
   EnvironmentReflectance = "Vegetation", 
-  TargetRadius = 0.5,
+  TargetRadius = 0.5
 )
 ```
 
@@ -403,7 +506,8 @@ for viewing the web interface throughout the process. This will create a
 temporary file named `rselenium_screenshot.png` in the current working
 directory.
 
-The result is a named numeric vector with the 6S parameter values:
+The result is a named numeric vector with the 6S parameter values, valid
+for band 3 of the `venus1` image:
 
 ``` r
 xcoefficients
@@ -414,23 +518,146 @@ xcoefficients
 
 ### TOA to BOA
 
-Finally, using the 6S parameters we can conver the TOA radiance image to
-a BOA reflectance image, using function `toa_to_boa`:
+Finally, using the 6S parameters we can convert the TOA radiance image
+(band 3) to a BOA reflectance image, using function
+`toa_rad_to_boa_refl`. We are using the `xcoefficients`, which contains
+the parameters we obtained from the 6S website in the previous step:
 
 ``` r
-venus1_boa_refl = toa_to_boa(
+venus1_boa_refl = toa_rad_to_boa_refl(
   toa_rad = venus1_toa_rad, 
   params = xcoefficients
 )
 names(venus1_boa_refl) = "Band 3, BOA reflectance"
 ```
 
-Here is the result:
+Here is the result, BOA reflectance in band 3 of the Venus image with
+started with (`venus1`):
 
 ``` r
 plot(venus1_boa_refl)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+
+### Correcting all 12 bands
+
+The following code section repeats the steps demonstrated above, but
+executing them sequentially for each of the 12 bands, rather than just
+for band 3, using a `for` loop:
+
+``` r
+library(sixs)
+library(XML)
+library(RSelenium)
+
+# Get image metadata
+data(venus1m)
+l = xmlToList(venus1m)
+
+# Empty list to keep results
+result = list()
+
+for(i in 1:12) {
+
+  # Rescale and select band
+  data(venus1)
+  venus1 = venus1 * 0.001
+  venus1 = venus1[,,,i,drop=TRUE]
+
+  # Get image band metadata
+  m = get_venus_metadata(l, band = i)
+
+  # Convert TOA reflectance to TOA radiance
+  venus1_toa_rad = refl_to_rad(
+    toa_refl = venus1,
+    date = m$date,
+    esun = bands$esun[i],
+    solar_zenith_angle = m$solar_zenith_angle
+  )
+
+  # Get 6S parameters
+  remote_driver = remoteDriver(remoteServerAddr = "164.90.191.95", port = 4445L)
+  remote_driver$open(silent = TRUE)
+  xcoefficients = sixs_params(
+    remote_driver = remote_driver, 
+    day = as.numeric(format(m$date, "%d")),
+    month = as.numeric(format(m$date, "%m")), 
+    SolarZenithalAngle = m$solar_zenith_angle, 
+    SolarAzimuthalAngle = m$solar_azimuth_angle,
+    ViewZenithalAngle = m$view_zenith_angle,
+    ViewAzimuthalAngle = m$view_azimuth_angle, 
+    Longitude = m$longitude, 
+    Latitude = m$latitude, 
+    Uw = 0.665071, 
+    Uo3 = 0.2982371, 
+    opticalDepth = 0.1105934, 
+    LowerWavelength = bands$lower[i], 
+    UpperWavelength = bands$upper[i],
+    TargetAltitude = m$elevation,
+    GroundCondition = "Patchy Ground",
+    TargetReflectance = "Vegetation",
+    EnvironmentReflectance = "Vegetation", 
+    TargetRadius = 0.5,
+    quiet = TRUE
+  )
+  remote_driver$close()
+
+  # Convert TOA radiance to BOA rteflectance
+  venus1_boa_refl = toa_rad_to_boa_refl(venus1_toa_rad, xcoefficients)
+
+  # Add result to list
+  result[[i]] = venus1_boa_refl
+
+}
+
+# Combine to multi-band raster
+result$along = 3
+result = do.call(c, result)
+```
+
+The image `result` is the final corrected image, now with all of the 12
+bands (rather than just band 3):
+
+``` r
+plot(result)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+
+And here is an example of two reflectance profiles for a particular
+pixel (80,80) in the image. The original TOA reflectance profile is
+shown in red. The corrected BOA reflectance profile is shown in blue:
+
+``` r
+# Extract reflectance profiles for one pixel
+data(venus1)
+toa_refl1 = venus1[[1]][80,80,] * 0.001
+boa_refl1 = result[[1]][80,80,]
+
+# Plot profiles
+plot(
+  x = rowMeans(bands[c("lower", "upper")]), y = toa_refl1, 
+  type = "b", 
+  xlab = "Wavelength (micrometers)", 
+  ylab = "Reflectance", 
+  ylim = range(c(toa_refl1, boa_refl1)),
+  col = "red"
+)
+lines(
+  x = rowMeans(bands[c("lower", "upper")]), 
+  y = boa_refl1, 
+  type = "b", 
+  col = "blue"
+)
+legend(
+  "bottomright",
+  lty = c(1, 1),
+  legend = c("TOA reflectance (original image)", "BOA reflectance (corrected)"), 
+  col = c("red", "blue")
+)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
 Done\!

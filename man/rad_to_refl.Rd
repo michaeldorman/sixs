@@ -30,4 +30,46 @@ where 'TOA' is the top of atmosphere reflectance, 'L' is the top of atmosphere r
 }
 \examples{
 
+library(stars)
+library(XML)
+
+data(venus1)
+data(venus1m)
+
+# Get metadata
+l = xmlToList(venus1m)
+m = get_venus_metadata(l, band = 1)
+
+# TOA radiance -> TOA reflectance
+toa_rad =  venus1 * 0.001
+toa_refl = NULL
+for(i in 1:dim(venus1)[3]) {
+    toa_refl[[i]] = rad_to_refl(
+       toa_rad = toa_rad[,,,i,drop=TRUE],
+       date = m$date,
+       esun = bands$esun[i],
+       solar_zenith_angle = m$solar_zenith_angle
+    )
+}
+toa_refl = do.call(c, toa_refl)
+toa_refl = st_redimension(toa_refl)
+
+# Plot rasters
+plot(toa_rad)
+plot(toa_refl)
+
+# Profile for one pixel
+toa_rad1 = venus1[[1]][100,100,]
+toa_refl1 = toa_refl[[1]][100,100,]
+
+# Plot reflectance profile
+w = rowMeans(bands[c("lower", "upper")])
+plot(
+    w, toa_rad1, type = "l", 
+    xlab = "Wavelength (micrometers)", ylab = "TOA radiance"
+)
+plot(
+    w, toa_refl1, type = "l", 
+    xlab = "Wavelength (micrometers)", ylab = #' "TOA reflectance"
+)
 }

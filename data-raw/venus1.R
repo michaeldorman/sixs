@@ -66,7 +66,7 @@ usethis::use_data(venus1_boa, overwrite = TRUE)
 # Metadata
 
 # Read
-x = readLines("/home/michael/Dropbox/Packages/sixs/other/venus_sample_data/raw/VE_VM01_VSC_L1VALD_ISRAEL03_20190204.HDR")
+x = readLines("/home/michael/Dropbox/Packages/sixs/other/venus_sample_data/images/VE_VM01_VSC_L1VALD_ISRAEL03_20190204.HDR")
 
 # Collapse
 x = paste0(x, collapse = "")

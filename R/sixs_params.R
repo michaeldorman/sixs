@@ -21,6 +21,7 @@
 #' @param TargetReflectance The target's reflectance type, one of: \code{"Constant"}, \code{"Vegetation"}, \code{"Clear Water"}, \code{"Sand"}, \code{"Lake Water"}.
 #' @param EnvironmentReflectance The environment reflectance type of the image, one of: \code{"Constant"}, \code{"Vegetation"}, \code{"Clear Water"}, \code{"Sand"}, \code{"Lake Water"}.
 #' @param TargetRadius The area of interest in the image [Km, the default is 0.5]
+#' @param quiet Should progress messages be suppressed? (Default is \code{FALSE})
 #' @param .delay Delay between each Selenium server step (for debugging purposes)
 #' @param .screenshot Logical, if \code{TRUE} then a screenshot of the Selenium browser, named \code{rselenium_screenshot.png}, is written in the working directory at each step (for debugging purposes)
 #'
@@ -105,6 +106,7 @@ sixs_params = function(
   TargetReflectance = c("Constant", "Vegetation", "Clear Water", "Sand", "Lake Water"),
   EnvironmentReflectance = c("Constant", "Vegetation", "Clear Water", "Sand", "Lake Water"),
   TargetRadius = 0.5,
+  quiet = FALSE,
   .delay = 0.5,
   .screenshot = FALSE
   ) {
@@ -220,7 +222,7 @@ remote_driver$navigate("https://www-loa.univ-lille1.fr/Wsixs/")
 remote_driver$setTimeout(type = "implicit", milliseconds = 10000)
 
 ################################################
-message("Step 1 - Geometrical Conditions")
+if(!quiet) message("Step 1 - Geometrical Conditions")
 
 check(.delay = .delay, .screenshot = .screenshot, remote_driver = remote_driver)
 
@@ -273,7 +275,7 @@ address_element$sendKeysToElement(list(Latitude))
 check(.delay = .delay, .screenshot = .screenshot, remote_driver = remote_driver)
 
 ################################################
-message("Step 2 - Atmospheric Model")
+if(!quiet) message("Step 2 - Atmospheric Model")
 
 webElem = remote_driver$findElement("partial link text", "Atmospheric Model")
 webElem$getElementText()
@@ -322,7 +324,7 @@ address_element$sendKeysToElement(list(opticalDepth))
 check(.delay = .delay, .screenshot = .screenshot, remote_driver = remote_driver)
 
 ################################################
-message("Step 3 - Spectral Conditions")
+if(!quiet) message("Step 3 - Spectral Conditions")
 
 webElem = remote_driver$findElement("partial link text", "Spectral Conditions")
 webElem$getElementText()
@@ -365,7 +367,7 @@ remote_driver$click(1)
 check(.delay = .delay, .screenshot = .screenshot, remote_driver = remote_driver)
 
 ################################################
-message("Step 4 - Target & Sensor Altitude")
+if(!quiet) message("Step 4 - Target & Sensor Altitude")
 
 webElem = remote_driver$findElement("partial link text", "Target & Sensor Altitude")
 webElem$getElementText()
@@ -391,7 +393,7 @@ address_element$sendKeysToElement(list(TargetAltitude, key = "enter"))
 check(.delay = .delay, .screenshot = .screenshot, remote_driver = remote_driver)
 
 ################################################
-message("Step 5 - Ground Reflectance")
+if(!quiet) message("Step 5 - Ground Reflectance")
 
 webElem = remote_driver$findElement("partial link text", "Ground Reflectance")
 webElem$getElementText()
@@ -428,7 +430,7 @@ address_element$sendKeysToElement(list(TargetRadius, key = "enter"))
 check(.delay = .delay, .screenshot = .screenshot, remote_driver = remote_driver)
 
 ################################################
-message("Step 6 - Signal Source")
+if(!quiet) message("Step 6 - Signal Source")
 
 webElem = remote_driver$findElement("partial link text", "Signal Source")
 remote_driver$mouseMoveToLocation(webElement = webElem) 

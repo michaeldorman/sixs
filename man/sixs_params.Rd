@@ -25,6 +25,7 @@ sixs_params(
   EnvironmentReflectance = c("Constant", "Vegetation", "Clear Water", "Sand",
     "Lake Water"),
   TargetRadius = 0.5,
+  quiet = FALSE,
   .delay = 0.5,
   .screenshot = FALSE
 )
@@ -67,6 +68,8 @@ sixs_params(
 \item{EnvironmentReflectance}{The environment reflectance type of the image, one of: \code{"Constant"}, \code{"Vegetation"}, \code{"Clear Water"}, \code{"Sand"}, \code{"Lake Water"}.}
 
 \item{TargetRadius}{The area of interest in the image [Km, the default is 0.5]}
+
+\item{quiet}{Should progress messages be suppressed? (Default is \code{FALSE})}
 
 \item{.delay}{Delay between each Selenium server step (for debugging purposes)}
 

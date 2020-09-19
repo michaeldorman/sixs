@@ -7,6 +7,7 @@
 #' then cropping a small (600*600 m^2) area and selecting just the first 12 image bands.
 #' 
 #' @format A \code{stars} raster, where values represent TOA reflectance multiplied by 1000.
+#' @import stars
 
 "venus1"
 
