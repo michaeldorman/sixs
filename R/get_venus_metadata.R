@@ -5,8 +5,7 @@
 #' @param x A \code{list} with the Venus image metadata, as returned by reading the Venus \code{HDR} file with \code{readLines} and parsing to \code{list} with \code{XML::xmlToList}
 #' @param band The Venus band for which to return meatadata, \code{numeric} of length 1 between \code{1} and \code{12}
 #' 
-#' @return \code{list} with the Venus image metadata values
-#' elevation in km...
+#' @return \code{list} with the Venus image metadata values: \code{date} (class \code{Date}), \code{solar_zenith_angle}, \code{solar_azimuth_angle}, \code{view_zenith_angle}, \code{view_azimuth_angle}, \code{longitude}, \code{latitude}, and \code{elevation} (in [km]).
 #' 
 #' @export
 #' 
@@ -28,10 +27,6 @@ get_venus_metadata = function(x, band) {
     date = x$Variable_Header$Specific_Product_Header$Product_Information$Acquisition_Date_Time
     date = substr(date, 5, 14)
     date = as.Date(date)
-    # month = as.character(date, "%m")
-    # month = as.numeric(month)
-    # day = as.character(date, "%d")
-    # day = as.numeric(day)
 
     # esun
     esun = NA
@@ -71,22 +66,9 @@ get_venus_metadata = function(x, band) {
     elevation = as.numeric(elevation)
     elevation = elevation / 1000  ## m -> km
 
-    # Longitude = 31 
-    # Latitude = 34 
-    # Uw = 1.52 
-    # Uo3 = 0.38 
-    # opticalDepth = 0.5 
-    # LowerWavelength = 0.4 
-    # UpperWavelength = 0.44
-    # TargetAltitude = 0.342
-    # GroundCondition = "Patchy Ground"
-    # TargetReflectance = "Vegetation"
-    # EnvironmentReflectance = "Vegetation" 
-
     # Result
     result = list(
         "date" = date,
-        # "month" = month,
         "solar_zenith_angle" = solar_zenith_angle,
         "solar_azimuth_angle" = solar_azimuth_angle,
         "view_zenith_angle" = view_zenith_angle,

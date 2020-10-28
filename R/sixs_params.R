@@ -16,7 +16,7 @@
 #' @param opticalDepth Value of Atmospheric Optical Depth (AOD) in 550nm [cm/atm]. Can be found in Aeronet website: https://aeronet.gsfc.nasa.gov/.
 #' @param LowerWavelength The lowest wavelength of the spectral band for correction
 #' @param UpperWavelength The highest  wavelength of the spectral band for correction
-#' @param TargetAltitude The height of the center of the image above sea level [Km]
+#' @param TargetAltitude The height of the center of the image above sea level [km]
 #' @param GroundCondition The ground condition of the image, one of: \code{"Homogenous Ground"}, \code{"Patchy Ground"}.
 #' @param TargetReflectance The target's reflectance type, one of: \code{"Constant"}, \code{"Vegetation"}, \code{"Clear Water"}, \code{"Sand"}, \code{"Lake Water"}.
 #' @param EnvironmentReflectance The environment reflectance type of the image, one of: \code{"Constant"}, \code{"Vegetation"}, \code{"Clear Water"}, \code{"Sand"}, \code{"Lake Water"}.
