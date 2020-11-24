@@ -1,0 +1,8 @@
+pandoc: '2.5'
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  intro: intro.html
+  multiple: multiple.html
+last_built: 2020-10-25T07:29Z
+
