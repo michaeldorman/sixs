@@ -1,0 +1,130 @@
+## ---- include = FALSE---------------------------------------------------------
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>", 
+  fig.align = "center", 
+  fig.width = 6, 
+  fig.height = 4
+)
+
+## -----------------------------------------------------------------------------
+dat = read.csv("http://164.90.191.95:8000/metadata.csv")
+
+## -----------------------------------------------------------------------------
+dat
+
+## ---- eval=FALSE--------------------------------------------------------------
+#  dir = tempdir()
+
+## -----------------------------------------------------------------------------
+dir = "~/Downloads/venus"
+
+## ---- eval=FALSE--------------------------------------------------------------
+#  options(timeout = 600)
+#  
+#  # Download images
+#  files = paste0(gsub("_L1VALD_", "_PDTIMG_L1VALD_", dat$id), ".DBL.tif")
+#  files
+#  url = paste0("http://164.90.191.95:8000/", files)
+#  for(i in url) download.file(i, file.path(dir, basename(i)))
+#  
+#  # Download metadata
+#  files = paste0(dat$id, ".HDR")
+#  files
+#  url = paste0("http://164.90.191.95:8000/", files)
+#  for(i in url) download.file(i, file.path(dir, basename(i)))
+
+## -----------------------------------------------------------------------------
+library(stars)
+in_file = paste0(gsub("_L1VALD_", "_PDTIMG_L1VALD_", dat$id[1]), ".DBL.tif")
+r = read_stars(file.path(dir, in_file))
+r = r[,,,1:12]
+plot(r, breaks = "equal")
+
+## -----------------------------------------------------------------------------
+library(sixs)
+library(RSelenium)
+library(XML)
+
+for(image in dat$id) {
+
+  # Read image
+  in_file = paste0(gsub("_L1VALD_", "_PDTIMG_L1VALD_", image), ".DBL.tif")
+  r = read_stars(file.path(dir, in_file))
+  
+  # Subset bands
+  r = r[,,,1:12]
+
+  # Normalize
+  r = r * 0.001
+
+  # Empty list to keep results
+  output = list()
+  for(i in 1:12) {
+
+    # Subset band
+    s = r[,,,i,drop=TRUE]
+
+    # Read metadata
+    input_m = paste0(image, ".HDR")
+    l = xmlParse(file.path(dir, input_m))
+    l = xmlToList(l)
+    m = get_venus_metadata(l, band = i)
+
+    # TOA refl -> TOA rad
+    s = refl_to_rad(
+      toa_refl = s,
+      date = m$date,
+      esun = bands$esun[i],
+      solar_zenith_angle = m$solar_zenith_angle
+    )
+
+    # 6S coefficients
+    remote_driver = remoteDriver(remoteServerAddr = "164.90.191.95", port = 4445L)
+    remote_driver$open(silent = TRUE)
+    xcoefficients = sixs_params(
+      remote_driver = remote_driver, 
+      day = as.numeric(format(m$date, "%d")),
+      month = as.numeric(format(m$date, "%m")), 
+      SolarZenithalAngle = m$solar_zenith_angle, 
+      SolarAzimuthalAngle = m$solar_azimuth_angle,
+      ViewZenithalAngle = m$view_zenith_angle,
+      ViewAzimuthalAngle = m$view_azimuth_angle, 
+      Longitude = m$longitude, 
+      Latitude = m$latitude, 
+      Uw = dat$uw_g_cm2[dat$id == image], 
+      Uo3 = dat$uo3_cm_atm[dat$id == image], 
+      opticalDepth = dat$optical_depth_550nm[dat$id == image], 
+      LowerWavelength = bands$lower[i], 
+      UpperWavelength = bands$upper[i],
+      TargetAltitude = m$elevation,
+      GroundCondition = "Patchy Ground",
+      TargetReflectance = "Vegetation",
+      EnvironmentReflectance = "Vegetation", 
+      TargetRadius = 0.5,
+      quiet = TRUE
+    )
+    remote_driver$close()
+
+    # TOA rad -> BOA refl
+    s = toa_rad_to_boa_refl(s, xcoefficients)
+
+    # Add result to list
+    output[[i]] = s
+
+  }
+
+  # Combine to multi-band raster
+  output$along = 3
+  output = do.call(c, output)
+  
+  # Write
+  out_file = gsub(".tif", "_out.tif", in_file, fixed = TRUE)
+  write_stars(output, file.path(dir, out_file))
+
+}
+
+## -----------------------------------------------------------------------------
+s = read_stars(file.path(dir, out_file))
+plot(s, breaks = "equal")
+
